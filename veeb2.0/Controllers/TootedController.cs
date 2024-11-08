@@ -25,7 +25,7 @@ namespace veeb.Controllers
         [HttpDelete("kustuta/{index}")]
         public List<Toode> Delete(int index)
         {
-            _tooted.RemoveAt(index);
+            _tooted.RemoveAt(index-1);
             return _tooted;
         }
 
