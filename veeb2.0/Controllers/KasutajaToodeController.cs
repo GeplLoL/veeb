@@ -1,101 +1,72 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using veeb2._0.Models;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace veeb.Controllers
+﻿[ApiController]
+[Route("api/[controller]")]
+public class KasutajadTootedController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class KasutajadTootedController : ControllerBase
+    private readonly ApplicationDbContext _context;
+
+    public KasutajadTootedController(ApplicationDbContext context)
     {
-        private static List<Kasutaja> _kasutajad = new()
-        {
-            new Kasutaja(1, "kasutaja1", "parool1", "Jaan", "Tamm")
-            {
-                Tooted = new List<Toode>
-                {
-                    new Toode(1, "Toode1", 10.0, true),
-                    new Toode(2, "Toode2", 15.0, true)
-                }
-            },
-            new Kasutaja(2, "kasutaja2", "parool2", "Mari", "Kask")
-            {
-                Tooted = new List<Toode>
-                {
-                    new Toode(3, "Toode3", 20.0, true),
-                    new Toode(4, "Toode4", 25.0, false)
-                }
-            }
-        };
+        _context = context;
+    }
 
-        // GET: api/kasutajadtooted/{kasutajaId}/tooted
-        [HttpGet("{kasutajaId}/tooted")]
-        public ActionResult<List<Toode>> GetProducts(int kasutajaId)
+    [HttpGet("{kasutajaId}/tooted")]
+    public ActionResult<List<Toode>> GetProducts(int kasutajaId)
+    {
+        var kasutaja = _context.Kasutajad
+            .Include(k => k.Tooted)
+            .FirstOrDefault(k => k.Id == kasutajaId);
+        if (kasutaja == null)
         {
-            var kasutaja = _kasutajad.FirstOrDefault(k => k.Id == kasutajaId);
-            if (kasutaja == null)
-            {
-                return NotFound("Kasutajat ei leitud.");
-            }
-            return Ok(kasutaja.Tooted);
+            return NotFound("Kasutajat ei leitud.");
+        }
+        return Ok(kasutaja.Tooted);
+    }
+
+    [HttpPost("{kasutajaId}/lisa")]
+    public ActionResult<List<Toode>> AddProduct(int kasutajaId, [FromBody] Toode newToode)
+    {
+        var kasutaja = _context.Kasutajad
+            .Include(k => k.Tooted)
+            .FirstOrDefault(k => k.Id == kasutajaId);
+        if (kasutaja == null)
+        {
+            return NotFound("Kasutajat ei leitud.");
         }
 
-        // POST: api/kasutajadtooted/{kasutajaId}/lisa
-        [HttpPost("{kasutajaId}/lisa")]
-        public ActionResult<List<Toode>> AddProduct(int kasutajaId, [FromBody] Toode newToode)
-        {
-            var kasutaja = _kasutajad.FirstOrDefault(k => k.Id == kasutajaId);
-            if (kasutaja == null)
-            {
-                return NotFound("Kasutajat ei leitud.");
-            }
+        newToode.KasutajaId = kasutajaId;
+        _context.Tooted.Add(newToode);
+        _context.SaveChanges();
+        return Ok(kasutaja.Tooted);
+    }
 
-            kasutaja.Tooted.Add(newToode);
-            return Ok(kasutaja.Tooted);
+    [HttpDelete("{kasutajaId}/kustuta/{toodeId}")]
+    public ActionResult<List<Toode>> DeleteProduct(int kasutajaId, int toodeId)
+    {
+        var toode = _context.Tooted.FirstOrDefault(t => t.Id == toodeId && t.KasutajaId == kasutajaId);
+        if (toode == null)
+        {
+            return NotFound("Toodet ei leitud.");
         }
 
-        // DELETE: api/kasutajadtooted/{kasutajaId}/kustuta/{toodeId}
-        [HttpDelete("{kasutajaId}/kustuta/{toodeId}")]
-        public ActionResult<List<Toode>> DeleteProduct(int kasutajaId, int toodeId)
+        _context.Tooted.Remove(toode);
+        _context.SaveChanges();
+        return Ok(_context.Tooted.Where(t => t.KasutajaId == kasutajaId).ToList());
+    }
+
+    [HttpPut("{kasutajaId}/uuenda")]
+    public IActionResult UpdateProduct(int kasutajaId, [FromBody] Toode updatedToode)
+    {
+        var existingToode = _context.Tooted.FirstOrDefault(t => t.Id == updatedToode.Id && t.KasutajaId == kasutajaId);
+        if (existingToode == null)
         {
-            var kasutaja = _kasutajad.FirstOrDefault(k => k.Id == kasutajaId);
-            if (kasutaja == null)
-            {
-                return NotFound("Kasutajat ei leitud.");
-            }
-
-            var toode = kasutaja.Tooted.FirstOrDefault(t => t.Id == toodeId);
-            if (toode == null)
-            {
-                return NotFound("Toodet ei leitud.");
-            }
-
-            kasutaja.Tooted.Remove(toode);
-            return Ok(kasutaja.Tooted);
+            return NotFound("Toodet ei leitud.");
         }
 
-        // PUT: api/kasutajadtooted/{kasutajaId}/uuenda
-        [HttpPut("{kasutajaId}/uuenda")]
-        public IActionResult UpdateProduct(int kasutajaId, [FromBody] Toode updatedToode)
-        {
-            var kasutaja = _kasutajad.FirstOrDefault(k => k.Id == kasutajaId);
-            if (kasutaja == null)
-            {
-                return NotFound("Kasutajat ei leitud.");
-            }
+        existingToode.Name = updatedToode.Name;
+        existingToode.Price = updatedToode.Price;
+        existingToode.IsActive = updatedToode.IsActive;
 
-            var existingToode = kasutaja.Tooted.FirstOrDefault(t => t.Id == updatedToode.Id);
-            if (existingToode == null)
-            {
-                return NotFound("Toodet ei leitud.");
-            }
-
-            existingToode.Name = updatedToode.Name;
-            existingToode.Price = updatedToode.Price;
-            existingToode.IsActive = updatedToode.IsActive;
-
-            return Ok(existingToode);
-        }
+        _context.SaveChanges();
+        return Ok(existingToode);
     }
 }

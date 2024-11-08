@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using veeb.models;
+using veeb.Models;
 
 namespace veeb.Controllers
 {
